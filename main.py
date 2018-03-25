@@ -48,7 +48,7 @@ def load_vgg(sess, vgg_path):
     return vgg_input_tensor, vgg_keep_prob_tensor, vgg_layer3_out_tensor, vgg_layer4_out_tensor, vgg_layer7_out_tensor
 
 
-tests.test_load_vgg(load_vgg, tf)
+# tests.test_load_vgg(load_vgg, tf)
 
 
 def conv1x1(input, filters):
@@ -61,8 +61,10 @@ def conv1x1(input, filters):
 
     # Add non-linear activation function
     l2 = tf.contrib.layers.l2_regularizer(.001)
+    # activation = tf.nn.relu
+    activation = None
     return tf.layers.conv2d(
-        input, filters, 1, padding='same', kernel_regularizer=l2)
+        input, filters, 1, padding='same', kernel_regularizer=l2, activation=activation)
 
 
 def upsample(input, filters, kernel_size, strides):
@@ -74,10 +76,13 @@ def upsample(input, filters, kernel_size, strides):
     :return: A Tensor
     """
 
-    # TODO: Add non-linear activation function
+    # Add non-linear activation function
     l2 = tf.contrib.layers.l2_regularizer(.001)
+    # activation = tf.nn.relu
+    activation = None
+
     return tf.layers.conv2d_transpose(
-        input, filters, kernel_size, strides=strides, padding='same', kernel_regularizer=l2)
+        input, filters, kernel_size, strides=strides, padding='same', kernel_regularizer=l2, activation=activation)
 
 
 def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
@@ -113,7 +118,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     return pred_3x8_4x16_7x32
 
 
-tests.test_layers(layers)
+# tests.test_layers(layers)
 
 
 def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
@@ -145,7 +150,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     return logits, train_op, cross_entropy_loss
 
 
-tests.test_optimize(optimize)
+# tests.test_optimize(optimize)
 
 
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
@@ -166,26 +171,28 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 
     sess.run(tf.global_variables_initializer())
 
+    # tf.metrics.mean_iou(labels, predictions, num_classes)
+
     for epoch_index in range(epochs):
         current_epoch_loss = 0
 
         print("Running epoch: " + str(epoch_index + 1))
         for X, y in get_batches_fn(batch_size):
-            loss, _ = sess.run([cross_entropy_loss, train_op], feed_dict={ input_image:X, correct_label:y, keep_prob:0.8 })
+            loss, _ = sess.run([cross_entropy_loss, train_op], feed_dict={
+                               input_image: X, correct_label: y, keep_prob: 0.7})
             current_epoch_loss += loss
-        
+
+            print("Training loss for batch: " + str(loss))
         print("Training loss for epoch: " + str(current_epoch_loss))
-    pass
 
-
-tests.test_train_nn(train_nn)
+# tests.test_train_nn(train_nn)
 
 
 def run():
     num_classes = 2
-    learning_rate = 0.01
-    epochs = 1
-    batch_size = 20
+    learning_rate = 0.001
+    epochs = 30
+    batch_size = 4
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
@@ -212,17 +219,20 @@ def run():
             tf.float32, [None, image_shape[0], image_shape[1], num_classes])
 
         # Build NN using load_vgg, layers, and optimize function
-        vgg_input, keep_prob, vgg_layer3, vgg_layer4, vgg_layer7 = load_vgg(sess, vgg_path)
+        vgg_input, keep_prob, vgg_layer3, vgg_layer4, vgg_layer7 = load_vgg(
+            sess, vgg_path)
 
         nn = layers(vgg_layer3, vgg_layer4, vgg_layer7, num_classes)
-        logits, train_op, cross_entropy_loss = optimize(nn, correct_label, learning_rate, num_classes)
+        logits, train_op, cross_entropy_loss = optimize(
+            nn, correct_label, learning_rate, num_classes)
 
         # Train NN using the train_nn function
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op,
                  cross_entropy_loss, vgg_input, correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
-        #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        helper.save_inference_samples(
+            runs_dir, data_dir, sess, image_shape, logits, keep_prob, vgg_input)
 
         # OPTIONAL: Apply the trained model to a video
 
