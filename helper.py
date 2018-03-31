@@ -90,9 +90,17 @@ def gen_batch_function(data_folder, image_shape):
                 gt_bg = np.all(gt_image == background_color, axis=2)
                 gt_bg = gt_bg.reshape(*gt_bg.shape, 1)
                 gt_image = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
-
+                
+                # augmentation
+                flip = random.choice([True, False])
+                if flip:
+                    image = np.flip(image, axis=1)
+                    gt_image = np.flip(gt_image, axis=1)
+                
+                
                 images.append(image)
                 gt_images.append(gt_image)
+       
 
             yield np.array(images), np.array(gt_images)
     return get_batches_fn
@@ -124,10 +132,12 @@ def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape)
 
         yield os.path.basename(image_file), np.array(street_im)
 
-
-def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image):
+def get_run_id():
+    return str(time.time())
+                        
+def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image, run_id):
     # Make folder for current run
-    output_dir = os.path.join(runs_dir, str(time.time()))
+    output_dir = os.path.join(runs_dir, run_id)
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
     os.makedirs(output_dir)
